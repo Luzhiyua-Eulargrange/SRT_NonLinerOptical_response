@@ -116,3 +116,4 @@ def debug_rdm_trajectory(
     print("  rho_trajectory shape:", rho.shape)
     print("  max Hermitian error:", float(hermitian_error))
     print("  max trace drift:", float(trace_drift))
+

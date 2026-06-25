@@ -24,7 +24,7 @@ HamiltonianBuilder = Callable[[float, Mapping], np.ndarray]
 
 
 def smooth_envelope(t: float, params: Mapping | None = None) -> float:
-    """Sin-squared pulse envelope with optional smooth switch-on."""
+    #Sin-squared pulse envelope with optional smooth switch-on.
     p = normalize_params(params)
     duration = p["pulse_duration"]
     if t < 0.0 or t > duration:

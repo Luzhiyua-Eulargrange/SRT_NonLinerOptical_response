@@ -13,7 +13,6 @@ except ImportError:
     from Band_Solver import diagonalize
     from config import normalize_params
 
-
 def velocity_matrix(
     k_point: float,
     params: Mapping | None = None,
@@ -46,7 +45,8 @@ def velocity_matrix(
 
 
 def smooth_eigenvector_gauge(eigenvectors: np.ndarray) -> np.ndarray:
-    """Align adjacent eigenvector phases along a one-dimensional k grid."""
+    #Align adjacent eigenvector phases along a one-dimensional k grid.
+    # Align eigenvector phases along k-grid via parallel transport to enable stable numerical differentiation for Berry connection.
     vectors = np.array(eigenvectors, dtype=np.complex128, copy=True)
     if vectors.ndim != 3 or vectors.shape[1] != vectors.shape[2]:
         raise ValueError("eigenvectors must have shape (Nk, Nb, Nb)")
@@ -64,7 +64,7 @@ def berry_connection(
     eigenvectors: np.ndarray,
     smooth_gauge: bool = True,
 ) -> np.ndarray:
-    """Compute xi_ss'(k) = i <u_ks | d_k u_ks'> by finite differences."""
+    #Compute xi_ss'(k) = i <u_ks | d_k u_ks'> by finite differences.
     k_grid = np.asarray(k_grid, dtype=float)
     vectors = np.asarray(eigenvectors, dtype=np.complex128)
     if k_grid.ndim != 1 or k_grid.size < 3:
@@ -120,7 +120,13 @@ def band_velocity_matrices(
     params: Mapping | None = None,
     eigenvectors: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Return velocity matrices transformed to the band basis for every k."""
+    """
+    Return U^dagger (1/hbar dH/dk) U for every k.
+
+    This analytic path is used by the production velocity-gauge evolution. The
+    covariant-derivative form from Eq. (28) is used separately as a sparse
+    diagnostic because it depends on finite-difference Berry-connection data.
+    """
     p = normalize_params(params)
     k_grid = np.asarray(k_grid, dtype=float)
     velocities = np.empty((k_grid.size, p["Nb"], p["Nb"]), dtype=np.complex128)

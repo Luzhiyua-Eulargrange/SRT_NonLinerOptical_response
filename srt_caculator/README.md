@@ -55,6 +55,8 @@ python main.py
 参数通过字典传入 `normalize_params`，未提供的参数会使用 `config.py` 中的默认值。常用参数包括：
 
 - `L`：倒格矢截断参数，决定平面波基大小；总基维度 `Nb = 2 * (2L + 1)`。
+- `num_k_band`：能带绘图和能带结果保存使用的 k 网格点数。
+- `num_k_rdm`：RDM、Berry 联络和协变导数使用的 k 网格点数，正式计算时建议做收敛测试。
 - `a0`：晶格常数，倒格矢大小为 `b = 2*pi/a0`。
 - `m`、`hbar`：有效质量与约化普朗克常数。
 - `kappa`、`v0`、`vA`、`vB`、`w1`、`w2`：模型哈密顿量参数。
@@ -72,6 +74,8 @@ params = normalize_params({
     "omega": 0.5,
     "pulse_duration": 40.0,
     "num_time_steps": 201,
+    "num_k_band": 51,
+    "num_k_rdm": 101,
     "fermi_energy": 0.0,
 })
 ```
