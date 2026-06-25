@@ -8,7 +8,7 @@ import numpy as np
 
 try:
     from .config import normalize_params
-except ImportError:  # Allows running this file directly from dev/.
+except ImportError:  # Allows running this file directly from current directory.
     from config import normalize_params
 
 
@@ -21,9 +21,9 @@ def _basis_index(component: str, ell_index: int, num_g: int) -> int:
 
 
 def build_hamiltonian(k_point: float, params: Mapping | None = None) -> np.ndarray:
-    """Construct H(k) in the truncated plane-wave basis.
-
-    Basis ordering is ``A, ell=-L..L`` followed by ``B, ell=-L..L``.
+    """
+    Construct H(k) in the truncated plane-wave basis.
+    Basis ordering is 'A, ell=-L..L' followed by 'B, ell=-L..L'.
     """
     p = normalize_params(params)
     ells = p["ell_list"]
@@ -70,15 +70,16 @@ def diagonalize(k_point: float, params: Mapping | None = None) -> tuple[np.ndarr
 
 
 def solve_band(k_point: float, params: Mapping | None = None) -> tuple[np.ndarray, np.ndarray]:
-    """Compatibility alias for diagonalizing one k point."""
+    #Compatibility alias for diagonalizing one k point.
+    #Forwarding diagonalize
     return diagonalize(k_point, params)
 
 
 def solve_bands(k_grid: np.ndarray, params: Mapping | None = None) -> tuple[np.ndarray, np.ndarray]:
-    """Diagonalize H(k) on a k grid.
-
-    Returns ``energies`` with shape ``(Nk, Nb)`` and ``eigenvectors`` with shape
-    ``(Nk, Nb, Nb)``.  For each k, eigenvectors are stored column-wise.
+    """
+    Diagonalize H(k) on a k grid.
+    Returns energies with shape (Nk, Nb) and eigenvectors with shape
+    (Nk, Nb, Nb).  For each k, eigenvectors are stored column-wise.
     """
     p = normalize_params(params)
     k_grid = np.asarray(k_grid, dtype=float)

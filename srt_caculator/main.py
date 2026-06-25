@@ -3,9 +3,12 @@ import numpy as np
 from config import normalize_params, make_k_grid
 from Band_Solver import solve_bands
 from Current import total_current
+from Debug_Tools import print_default_params
 
 
 def main():
+    print_default_params()
+
     params = normalize_params({
           "L": 2,
           "E0": 0.02,
