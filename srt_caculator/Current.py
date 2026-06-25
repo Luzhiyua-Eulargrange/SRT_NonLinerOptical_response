@@ -9,12 +9,12 @@ import numpy as np
 try:
     from .Band_Solver import build_hamiltonian
     from .Geometry import velocity_matrix
-    from .RDM_Solver import drifted_k, propagate_rdm
+    from .RDM_Common import drifted_k, propagate_single_k_plane_wave_rdm
     from .config import make_k_grid, normalize_params
 except ImportError:
     from Band_Solver import build_hamiltonian
     from Geometry import velocity_matrix
-    from RDM_Solver import drifted_k, propagate_rdm
+    from RDM_Common import drifted_k, propagate_single_k_plane_wave_rdm
     from config import make_k_grid, normalize_params
 
 VelocityFunction = Callable[[float, Mapping], np.ndarray]
@@ -69,7 +69,7 @@ def total_current(
     if velocity_function is None:
         velocity_function = velocity_matrix
     if rdm_solver_function is None:
-        rdm_solver_function = propagate_rdm
+        rdm_solver_function = propagate_single_k_plane_wave_rdm
 
     time_grid_ref: np.ndarray | None = None
     accumulated: np.ndarray | None = None

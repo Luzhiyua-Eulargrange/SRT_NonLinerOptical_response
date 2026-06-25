@@ -4,11 +4,14 @@
 
 ## 文件结构
 
-- `main.py`：示例运行入口，设置参数、生成 k 网格、计算能带和总电流，并保存结果。
+- `main.py`：示例运行入口，设置参数、计算能带、保存结果，并对两种 RDM 规范做轻量调试检查。
 - `config.py`：默认参数、参数归一化与校验、第一布里渊区 k 网格生成。
 - `Band_Solver.py`：构造一维双组分连续模型哈密顿量，计算单个或多个 k 点的本征能量和本征矢。
-- `RDM_Solver.py`：定义电场、矢势、动量漂移以及 RDM 时间演化。
-- `Geometry.py`：计算速度算符矩阵，支持平面波基和能带本征基。
+- `Geometry.py`：计算速度算符矩阵、能带表象速度矩阵、Berry 联络以及协变导数。
+- `RDM_Common.py`：RDM 求解器共用的外场、初态密度矩阵和 ODE 积分工具。
+- `RDM_Velocity_Gauge.py`：速度规范 RDM 演化模块，对应 Phys. Rev. B 96, 035431 的式 (56)。
+- `RDM_Length_Gauge.py`：长度规范 RDM 演化模块，对应 Phys. Rev. B 96, 035431 的式 (55)。
+- `Debug_Tools.py`：默认参数打印、能带图绘制、本征矢打印以及 RDM 轨迹检查工具。
 - `Current.py`：计算单个 k 轨道的电流贡献，并在第一布里渊区积分得到总电流。
 
 ## 环境依赖
@@ -44,6 +47,8 @@ python main.py
 - `k_weight`：k 空间积分权重。
 - `energies`：每个 k 点对应的能带能量，形状为 `(Nk, Nb)`。
 - `eigenvectors`：每个 k 点对应的本征矢矩阵，形状为 `(Nk, Nb, Nb)`。
+
+随后主程序会使用一个较小的调试网格分别调用速度规范和长度规范 RDM 模块，检查密度矩阵的 Hermitian 性和迹守恒。这个步骤用于快速验证模块接口；正式计算可以直接调用对应的 `propagate_velocity_gauge_rdm` 或 `propagate_length_gauge_rdm`。
 
 ## 主要参数
 
@@ -84,3 +89,27 @@ eigenvectors = data["eigenvectors"]
 ```
 
 这些数据可进一步用于绘制能带图、检查本征矢或作为后续电流计算的输入。
+
+## RDM 双规范模块
+
+两个新 RDM 模块都在能带表象中推进密度矩阵，输入为 `k_grid`、`energies` 和 `eigenvectors`。
+
+速度规范模块使用：
+
+```text
+(i hbar d_t - epsilon_ss') rho^A_kss' = e A(t) [v, rho^A]_kss'
+```
+
+长度规范模块使用：
+
+```text
+(i hbar d_t - epsilon_ss') rho^E_kss' = i e E(t) [D, rho^E]_kss'
+```
+
+其中一维情况下：
+
+```text
+[D, rho] = d_k rho - i [xi, rho]
+```
+
+`xi` 是 `Geometry.py` 中通过本征矢有限差分计算的 Berry 联络。
