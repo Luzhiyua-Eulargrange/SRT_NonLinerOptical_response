@@ -92,6 +92,34 @@ def solve_bands(k_grid: np.ndarray, params: Mapping | None = None) -> tuple[np.n
     return energies, eigenvectors
 
 
+def save_band_results(
+    filename: str,
+    k_grid: np.ndarray,
+    k_weight: float,
+    energies: np.ndarray,
+    eigenvectors: np.ndarray,
+) -> None:
+    """Save band calculation inputs and outputs to an npz file."""
+    np.savez(
+        filename,
+        k_grid=np.asarray(k_grid, dtype=float),
+        k_weight=float(k_weight),
+        energies=np.asarray(energies, dtype=float),
+        eigenvectors=np.asarray(eigenvectors, dtype=np.complex128),
+    )
+
+
+def load_band_results(filename: str) -> dict[str, np.ndarray | float]:
+    """Load band calculation data saved by save_band_results."""
+    data = np.load(filename)
+    return {
+        "k_grid": data["k_grid"],
+        "k_weight": float(data["k_weight"]),
+        "energies": data["energies"],
+        "eigenvectors": data["eigenvectors"],
+    }
+
+
 def is_hermitian(matrix: np.ndarray, atol: float = 1e-10) -> bool:
     """Return True if a matrix is Hermitian within numerical tolerance."""
     return bool(np.allclose(matrix, matrix.conj().T, atol=atol))
