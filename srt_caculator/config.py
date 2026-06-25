@@ -1,8 +1,8 @@
-﻿"""Configuration helpers for the SRT RDM solver.
+﻿"""
+Configuration helpers for the SRT RDM solver.
 
-The project uses a lightweight dictionary API so scripts can override only the
-parameters they need.  ``normalize_params`` fills defaults, validates inputs, and
-adds derived values such as the reciprocal lattice vector and matrix size.
+The project uses a dictionary application programming interface so scripts can override only the parameters they need.
+'normalize_params' fills defaults, validates inputs, and adds derived values such as the reciprocal lattice vector and matrix size.
 """
 
 from __future__ import annotations
@@ -22,10 +22,10 @@ class DefaultParams:
     kappa: float = 0.15
     v0: float = 0.2
     vA: complex = 0.08 + 0.02j
-    vB: complex = -0.06 + 0.01j
+    vB: complex =-0.06 + 0.01j
     w1: complex = 0.15 + 0.00j
     w2: complex = 0.10 - 0.03j
-    L: int = 3
+    L: int = 3  #Reciprocal lattice vector truncation parameter
 
     # Field and time propagation parameters.
     e_charge: float = 1.0
@@ -35,8 +35,8 @@ class DefaultParams:
     t_switch: float = 8.0
     num_time_steps: int = 401
     fermi_energy: float = 0.0
-    rtol: float = 1e-8
-    atol: float = 1e-10
+    rtol: float = 1e-8  #relative tolerance
+    atol: float = 1e-10 #absolute tolerance
 
 
 DEFAULT_PARAMS = asdict(DefaultParams())
@@ -98,7 +98,7 @@ def fold_to_fbz(k_value: float | np.ndarray, b: float) -> float | np.ndarray:
 
 
 def make_k_grid(params: Mapping[str, Any] | None = None, num_k: int = 101) -> tuple[np.ndarray, float]:
-    """Return an endpoint-excluding FBZ grid and integration weight dk/(2*pi)."""
+    """Return an endpoint-excluding FBZ grid and integration weight dk/(2*pi) for num integration."""
     p = normalize_params(params)
     if num_k < 2:
         raise ValueError("num_k must be at least 2")
