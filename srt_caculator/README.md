@@ -16,10 +16,14 @@
 建议使用 Python 3.10 或更高版本。项目主要依赖：
 
 ```bash
-pip install numpy scipy
+pip install -r requirements.txt
 ```
 
-其中 `scipy` 用于调用 `scipy.integrate.solve_ivp` 进行时间演化；如果未安装 `scipy`，程序会回退到内置的四阶 Runge-Kutta 方法。
+依赖列表维护在 `requirements.txt` 中：
+
+- `numpy`：矩阵构造、线性代数、数组保存与读取。
+- `scipy`：调用 `scipy.integrate.solve_ivp` 进行 RDM 时间演化；如果未安装 `scipy`，程序会回退到内置的四阶 Runge-Kutta 方法。
+- `matplotlib`：用于 `Debug_Tools.py` 中的能带图绘制。
 
 ## 运行方法
 
@@ -29,12 +33,17 @@ pip install numpy scipy
 python main.py
 ```
 
-运行完成后，程序会在当前目录生成 `result.npz`，其中包含：
+当前主程序会先进行能带计算和调试检查，并在当前目录生成：
+
+- `band_result.npz`：能带计算数据文件。
+- `band_structure.png`：能带图。
+
+`band_result.npz` 包含：
 
 - `k_grid`：第一布里渊区内的 k 点网格。
+- `k_weight`：k 空间积分权重。
 - `energies`：每个 k 点对应的能带能量，形状为 `(Nk, Nb)`。
-- `time_grid`：时间演化网格。
-- `current`：随时间变化的总电流。
+- `eigenvectors`：每个 k 点对应的本征矢矩阵，形状为 `(Nk, Nb, Nb)`。
 
 ## 主要参数
 
@@ -67,11 +76,11 @@ params = normalize_params({
 ```python
 import numpy as np
 
-data = np.load("result.npz")
+data = np.load("band_result.npz")
 k_grid = data["k_grid"]
+k_weight = float(data["k_weight"])
 energies = data["energies"]
-time_grid = data["time_grid"]
-current = data["current"]
+eigenvectors = data["eigenvectors"]
 ```
 
-这些数据可进一步用于绘制能带图、时间依赖电流曲线或频谱分析。
+这些数据可进一步用于绘制能带图、检查本征矢或作为后续电流计算的输入。
