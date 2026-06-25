@@ -88,3 +88,32 @@ def plot_bands_and_print_eigenvectors(
     fig.savefig(output, dpi=200)
     plt.close(fig)
     print(f"Saved band plot to {output.resolve()}")
+
+
+def debug_rdm_trajectory(
+    time_grid: np.ndarray,
+    rho_trajectory: np.ndarray,
+    title: str = "RDM trajectory",
+) -> None:
+    """Print basic consistency checks for an RDM trajectory."""
+    time_grid = np.asarray(time_grid, dtype=float)
+    rho = np.asarray(rho_trajectory, dtype=np.complex128)
+    if time_grid.ndim != 1:
+        raise ValueError("time_grid must be one-dimensional")
+    if rho.shape[0] != time_grid.size:
+        raise ValueError("rho_trajectory first axis must match time_grid")
+    if rho.ndim not in (3, 4) or rho.shape[-1] != rho.shape[-2]:
+        raise ValueError("rho_trajectory must have shape (Nt, Nb, Nb) or (Nt, Nk, Nb, Nb)")
+
+    hermitian_error = np.max(np.abs(rho - rho.conj().swapaxes(-1, -2)))
+    # For closed-system commutator dynamics, Tr(rho) is conserved and tracks
+    # the total occupation. A large drift usually means an equation or ODE issue.
+    traces = np.trace(rho, axis1=-2, axis2=-1)
+    trace_drift = np.max(np.abs(traces - traces[0]))
+
+    print(f"{title}:")
+    print("  time_grid shape:", time_grid.shape)
+    print("  rho_trajectory shape:", rho.shape)
+    print("  max Hermitian error:", float(hermitian_error))
+    print("  max trace drift:", float(trace_drift))
+

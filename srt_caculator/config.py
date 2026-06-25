@@ -26,6 +26,8 @@ class DefaultParams:
     w1: complex = 0.15 + 0.00j
     w2: complex = 0.10 - 0.03j
     L: int = 3  #Reciprocal lattice vector truncation parameter
+    num_k_band: int = 101  #k grid for band plotting and stored band data
+    num_k_rdm: int = 401   #k grid for Berry connection, covariant derivative, and RDM
 
     # Field and time propagation parameters.
     e_charge: float = 1.0
@@ -58,6 +60,8 @@ def normalize_params(params: Mapping[str, Any] | None = None) -> dict[str, Any]:
     out["w1"] = complex(out["w1"])
     out["w2"] = complex(out["w2"])
     out["L"] = int(out["L"])
+    out["num_k_band"] = int(out["num_k_band"])
+    out["num_k_rdm"] = int(out["num_k_rdm"])
     out["e_charge"] = float(out["e_charge"])
     out["E0"] = float(out["E0"])
     out["omega"] = float(out["omega"])
@@ -76,6 +80,10 @@ def normalize_params(params: Mapping[str, Any] | None = None) -> dict[str, Any]:
         raise ValueError("hbar must be positive")
     if out["L"] < 0:
         raise ValueError("L must be non-negative")
+    if out["num_k_band"] < 2:
+        raise ValueError("num_k_band must be at least 2")
+    if out["num_k_rdm"] < 3:
+        raise ValueError("num_k_rdm must be at least 3")
     if out["omega"] == 0.0:
         raise ValueError("omega must be non-zero")
     if out["pulse_duration"] <= 0.0:
@@ -97,9 +105,11 @@ def fold_to_fbz(k_value: float | np.ndarray, b: float) -> float | np.ndarray:
     return (np.asarray(k_value) + 0.5 * b) % b - 0.5 * b
 
 
-def make_k_grid(params: Mapping[str, Any] | None = None, num_k: int = 101) -> tuple[np.ndarray, float]:
+def make_k_grid(params: Mapping[str, Any] | None = None, num_k: int | None = None) -> tuple[np.ndarray, float]:
     """Return an endpoint-excluding FBZ grid and integration weight dk/(2*pi) for num integration."""
     p = normalize_params(params)
+    if num_k is None:
+        num_k = p["num_k_rdm"]
     if num_k < 2:
         raise ValueError("num_k must be at least 2")
     k_grid = np.linspace(-0.5 * p["b"], 0.5 * p["b"], int(num_k), endpoint=False)
