@@ -8,12 +8,12 @@ import numpy as np
 
 try:
     from .Band_Solver import build_hamiltonian
-    from .Geometry import velocity_matrix
+    from .Geometry import band_velocity_matrices, velocity_matrix
     from .RDM_Common import drifted_k, propagate_single_k_plane_wave_rdm
     from .config import make_k_grid, normalize_params
 except ImportError:
     from Band_Solver import build_hamiltonian
-    from Geometry import velocity_matrix
+    from Geometry import band_velocity_matrices, velocity_matrix
     from RDM_Common import drifted_k, propagate_single_k_plane_wave_rdm
     from config import make_k_grid, normalize_params
 
@@ -102,4 +102,68 @@ def total_current(
 def calculate_current(*args, **kwargs) -> tuple[np.ndarray, np.ndarray]:
     """Compatibility alias for ``total_current``."""
     return total_current(*args, **kwargs)
+
+
+def current_from_band_rdm(
+    params: Mapping | None,
+    rho_trajectory: np.ndarray,
+    velocity_grid: np.ndarray,
+    k_weight: float,
+) -> np.ndarray:
+    """Return J(t) = -e sum_k w_k Re Tr[v(k) rho(k,t)]."""
+    p = normalize_params(params)
+    rho = np.asarray(rho_trajectory, dtype=np.complex128)
+    velocity = np.asarray(velocity_grid, dtype=np.complex128)
+    if rho.ndim != 4:
+        raise ValueError("rho_trajectory must have shape (Nt, Nk, Nb, Nb)")
+    if velocity.ndim != 3:
+        raise ValueError("velocity_grid must have shape (Nk, Nb, Nb)")
+    if rho.shape[1:] != velocity.shape:
+        raise ValueError("rho_trajectory and velocity_grid shapes are inconsistent")
+
+    contributions = np.einsum("kij,tkji->t", velocity, rho).real
+    return -p["e_charge"] * float(k_weight) * contributions
+
+
+def total_current_from_band_rdm(
+    params: Mapping | None,
+    k_grid: np.ndarray,
+    k_weight: float,
+    rho_trajectory: np.ndarray,
+    eigenvectors: np.ndarray,
+    velocity_grid: np.ndarray | None = None,
+) -> np.ndarray:
+    """Compute macroscopic current from band-basis RDM output."""
+    p = normalize_params(params)
+    if velocity_grid is None:
+        velocity_grid = band_velocity_matrices(k_grid, p, eigenvectors=eigenvectors)
+    return current_from_band_rdm(p, rho_trajectory, velocity_grid, k_weight)
+
+
+def total_current_from_velocity_gauge_rdm(*args, **kwargs) -> np.ndarray:
+    """Compatibility alias for total_current_from_band_rdm."""
+    return total_current_from_band_rdm(*args, **kwargs)
+
+
+def save_rdm_current_results(
+    filename: str,
+    gauge: str,
+    k_grid: np.ndarray,
+    k_weight: float,
+    time_grid: np.ndarray,
+    rho_trajectory: np.ndarray,
+    current: np.ndarray,
+    energies: np.ndarray,
+) -> None:
+    """Save RDM trajectory and current evolution to an npz file."""
+    np.savez(
+        filename,
+        gauge=np.asarray(gauge),
+        k_grid=np.asarray(k_grid, dtype=float),
+        k_weight=float(k_weight),
+        time_grid=np.asarray(time_grid, dtype=float),
+        rho_trajectory=np.asarray(rho_trajectory, dtype=np.complex128),
+        current=np.asarray(current, dtype=float),
+        energies=np.asarray(energies, dtype=float),
+    )
 

@@ -43,7 +43,6 @@ def velocity_matrix(
         return eigenvectors.conj().T @ velocity @ eigenvectors
     raise ValueError("basis must be 'plane_wave' or 'band'")
 
-
 def smooth_eigenvector_gauge(eigenvectors: np.ndarray) -> np.ndarray:
     #Align adjacent eigenvector phases along a one-dimensional k grid.
     # Align eigenvector phases along k-grid via parallel transport to enable stable numerical differentiation for Berry connection.

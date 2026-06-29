@@ -174,7 +174,8 @@ def propagate_single_k_plane_wave_rdm(
     build_H: HamiltonianBuilder | None = None,
     time_grid: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Propagate the legacy single-k RDM in the plane-wave basis.
+    """
+    Propagate the legacy single-k RDM in the plane-wave basis.
 
     This keeps the old current-integration path available from the shared
     module. New gauge-resolved calculations should use RDM_Velocity_Gauge or
