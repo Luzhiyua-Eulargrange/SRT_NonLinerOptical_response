@@ -15,11 +15,11 @@ import numpy as np
 
 try:
     from .Band_Solver import solve_bands
-    from .Geometry import smooth_eigenvector_gauge, velocity_matrix
+    from .Geometry import berry_connection, velocity_matrix
     from .config import make_k_grid, normalize_params
 except ImportError:
     from Band_Solver import solve_bands
-    from Geometry import smooth_eigenvector_gauge, velocity_matrix
+    from Geometry import berry_connection, velocity_matrix
     from config import make_k_grid, normalize_params
 
 
@@ -34,7 +34,7 @@ def velocity_from_eq28_at_indices(
     p = normalize_params(params)
     k_grid = np.asarray(k_grid, dtype=float)
     energies = np.asarray(energies, dtype=float)
-    vectors = smooth_eigenvector_gauge(np.asarray(eigenvectors, dtype=np.complex128))
+    vectors = np.asarray(eigenvectors, dtype=np.complex128)
 
     if k_grid.ndim != 1 or k_grid.size < 3:
         raise ValueError("k_grid must be one-dimensional with at least three points")
@@ -49,6 +49,7 @@ def velocity_from_eq28_at_indices(
 
     nk, nb = energies.shape
     dk = float(steps[0])
+    xi_grid = berry_connection(k_grid, vectors, smooth_gauge=False)
     diag = np.arange(nb)
     normalized_indices: list[int] = []
     velocities: list[np.ndarray] = []
@@ -63,9 +64,7 @@ def velocity_from_eq28_at_indices(
         im = (ik - 1) % nk
         ip = (ik + 1) % nk
         d_energy = (energies[ip] - energies[im]) / (2.0 * dk)
-        d_vectors = (vectors[ip] - vectors[im]) / (2.0 * dk)
-        xi = 1j * vectors[ik].conj().T @ d_vectors
-        xi = 0.5 * (xi + xi.conj().T)
+        xi = xi_grid[ik]
 
         energy_diff = energies[ik, None, :] - energies[ik, :, None]
         velocity = -1j * energy_diff * xi

@@ -1,21 +1,21 @@
-# Velocity Matrix Diagnostics
+# 速度矩阵诊断说明
 
-The main code uses the direct band-basis transform
+主程序中速度规范 RDM 的生产路径使用直接的能带表象变换：
 
 $$
 v_{\mathrm{band}}(k)
 = U^\dagger(k)\,\frac{1}{\hbar}\frac{\partial H(k)}{\partial k}\,U(k)
 $$
 
-for velocity-gauge time evolution. This is the stable production path.
+这条路径只需要同一个 \(k\) 点处的本征矢和解析的哈密顿量导数，目前相对稳定。
 
-The paper formula is
+论文中的等价公式可以写成：
 
 $$
 v_{kss'} = \frac{1}{\hbar}\,[D_k,H(k)]_{ss'} .
 $$
 
-In the energy eigenbasis it can be written as
+在能量本征表象中，它等价于：
 
 $$
 v_{kss'}
@@ -26,23 +26,23 @@ v_{kss'}
 \right],
 $$
 
-where
+其中
 
 $$
 \xi_{kss'} = i\langle u_{ks}|\partial_k u_{ks'}\rangle
 $$
 
-is the Berry connection.
+是 Berry 联络。
 
-## Why The Two Formulas Are Equivalent
+## 理论上的等价性
 
-Start from the eigenvalue equation
+从本征方程出发：
 
 $$
 H(k)|u_s(k)\rangle = \epsilon_s(k)|u_s(k)\rangle .
 $$
 
-Differentiate with respect to \(k\):
+对 \(k\) 求导：
 
 $$
 \frac{\partial H}{\partial k}|u_s\rangle
@@ -52,14 +52,14 @@ $$
 + \epsilon_s|\partial_k u_s\rangle .
 $$
 
-Project with \(\langle u_{s'}|\). For \(s'=s\),
+用 \(\langle u_{s'}|\) 左乘。对角项给出：
 
 $$
 \langle u_s|\partial_k H|u_s\rangle
 = \partial_k \epsilon_s .
 $$
 
-For \(s'\ne s\),
+非对角项给出：
 
 $$
 \langle u_{s'}|\partial_k H|u_s\rangle
@@ -68,42 +68,29 @@ $$
 \langle u_{s'}|\partial_k u_s\rangle .
 $$
 
-Using
+结合 Berry 联络定义，就可以得到 Eq. (28) 中的速度矩阵表达式。因此，如果导数是精确的，而且能带规范处理完全一致，那么 Berry 联络公式和直接变换公式应该给出相同的速度矩阵。
 
-$$
-\xi_{ks's}=i\langle u_{ks'}|\partial_k u_{ks}\rangle ,
-$$
+## 数值诊断为何仍会失败
 
-one obtains the off-diagonal part of Eq. (28). Combining the diagonal and
-off-diagonal cases gives the same object as
+直接变换公式使用解析的 \(\partial_k H\)，只依赖同一 \(k\) 点的本征矢；而 Eq. (28) 的数值诊断需要对不同 \(k\) 点的本征矢做有限差分，因此对以下问题非常敏感：
 
-$$
-U^\dagger(k)\,\frac{1}{\hbar}\frac{\partial H(k)}{\partial k}\,U(k).
-$$
+- 数值对角化给出的任意本征矢相位；
+- 能带交叉或近简并附近的能带标号变化；
+- 近简并子空间内部的任意酉旋转；
+- 第一布里渊区边界处的周期 sewing matrix；
+- 有限 \(k\) 网格下 Berry 联络和协变导数的离散化误差。
 
-Thus, with exact derivatives and a consistent smooth gauge, the two formulas
-are theoretically equivalent.
+目前已经把相位平滑机制前移到 `Band_Solver.py`，并使 `Velocity_Matrix_Diagnostics.py` 从 `Geometry.py` 调用统一的 Berry 联络实现。但最新诊断仍显示 Eq. (28) 有限差分结果和直接变换结果差异较大。这说明问题不只是逐带 U(1) 相位，还可能涉及近简并子空间处理、band tracking 和 BZ 边界 sewing。
 
-## Why The Numerical Eq. (28) Diagnostic Can Fail
+因此，当前生产路径仍应使用直接变换：
 
-The direct transform uses the analytic derivative of the Hamiltonian and only
-requires eigenvectors at the same \(k\).
+```text
+U^\dagger (1/hbar dH/dk) U
+```
 
-The Eq. (28) diagnostic needs finite differences of eigenvectors across
-neighboring \(k\) points. This makes it sensitive to:
+Eq. (28) 路径目前只作为 Berry 联络质量和能带规范质量的诊断工具，不应直接用于生产计算。
 
-- arbitrary eigenvector phases from numerical diagonalization;
-- band sorting changes near crossings or near degeneracies;
-- insufficient \(k\)-grid density;
-- imperfect periodic matching at the Brillouin-zone boundary;
-- using single-band phase smoothing where a degenerate subspace treatment is needed.
-
-For that reason, the Eq. (28) implementation is kept in
-`Velocity_Matrix_Diagnostics.py` only. It is useful for studying Berry
-connection quality, but it is not used by the production velocity-gauge RDM
-evolution.
-
-Run the diagnostic independently with:
+独立运行诊断：
 
 ```bash
 python Velocity_Matrix_Diagnostics.py

@@ -53,8 +53,8 @@ def length_gauge_rhs(
     energies: np.ndarray,
     berry_connection_grid: np.ndarray,
 ) -> np.ndarray:
-    """Return d rho / dt from Eq. (55) on a k grid.
-
+    """
+    Return d rho / dt from Eq. (55) on a k grid.
     Eq. (55): (i hbar d_t - epsilon_ss') rho = i e E(t) [D, rho].
     In 1D, [D, rho] = d_k rho - i [xi, rho].
     """
@@ -84,7 +84,7 @@ def propagate_length_gauge_rdm(
     p = normalize_params(params)
     k_grid, energies, eigenvectors = _validate_band_inputs(k_grid, energies, eigenvectors)
     if berry_connection_grid is None:
-        berry_connection_grid = berry_connection(k_grid, eigenvectors)
+        berry_connection_grid = berry_connection(k_grid, eigenvectors, smooth_gauge=False)
     else:
         berry_connection_grid = np.asarray(berry_connection_grid, dtype=np.complex128)
 

@@ -145,6 +145,37 @@ def total_current_from_velocity_gauge_rdm(*args, **kwargs) -> np.ndarray:
     return total_current_from_band_rdm(*args, **kwargs)
 
 
+def current_result_from_band_rdm(
+    params: Mapping | None,
+    gauge: str,
+    rdm_result: Mapping,
+    velocity_grid: np.ndarray | None = None,
+) -> dict:
+    """Return a current result dictionary from a saved-style band RDM result."""
+    required_keys = ("k_grid", "k_weight", "time_grid", "rho_trajectory", "energies", "eigenvectors")
+    missing = [key for key in required_keys if key not in rdm_result]
+    if missing:
+        raise KeyError(f"rdm_result is missing keys: {missing}")
+
+    current = total_current_from_band_rdm(
+        params,
+        np.asarray(rdm_result["k_grid"], dtype=float),
+        float(rdm_result["k_weight"]),
+        np.asarray(rdm_result["rho_trajectory"], dtype=np.complex128),
+        np.asarray(rdm_result["eigenvectors"], dtype=np.complex128),
+        velocity_grid=velocity_grid,
+    )
+    return {
+        "gauge": gauge,
+        "k_grid": np.asarray(rdm_result["k_grid"], dtype=float),
+        "k_weight": float(rdm_result["k_weight"]),
+        "time_grid": np.asarray(rdm_result["time_grid"], dtype=float),
+        "rho_trajectory": np.asarray(rdm_result["rho_trajectory"], dtype=np.complex128),
+        "current": current,
+        "energies": np.asarray(rdm_result["energies"], dtype=float),
+    }
+
+
 def save_rdm_current_results(
     filename: str,
     gauge: str,

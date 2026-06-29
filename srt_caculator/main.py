@@ -1,4 +1,4 @@
-"""Default entry point: length-gauge RDM current calculation."""
+"""Default entry point: length-gauge RDM convergence calculation."""
 
 from main_length_gauge import main
 

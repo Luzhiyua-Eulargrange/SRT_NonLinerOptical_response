@@ -7,10 +7,10 @@ from typing import Mapping
 import numpy as np
 
 try:
-    from .Band_Solver import diagonalize
+    from .Band_Solver import diagonalize, smooth_eigenvector_phases
     from .config import normalize_params
 except ImportError:
-    from Band_Solver import diagonalize
+    from Band_Solver import diagonalize, smooth_eigenvector_phases
     from config import normalize_params
 
 def velocity_matrix(
@@ -43,20 +43,6 @@ def velocity_matrix(
         return eigenvectors.conj().T @ velocity @ eigenvectors
     raise ValueError("basis must be 'plane_wave' or 'band'")
 
-def smooth_eigenvector_gauge(eigenvectors: np.ndarray) -> np.ndarray:
-    #Align adjacent eigenvector phases along a one-dimensional k grid.
-    # Align eigenvector phases along k-grid via parallel transport to enable stable numerical differentiation for Berry connection.
-    vectors = np.array(eigenvectors, dtype=np.complex128, copy=True)
-    if vectors.ndim != 3 or vectors.shape[1] != vectors.shape[2]:
-        raise ValueError("eigenvectors must have shape (Nk, Nb, Nb)")
-
-    for ik in range(1, vectors.shape[0]):
-        for band in range(vectors.shape[2]):
-            overlap = np.vdot(vectors[ik - 1, :, band], vectors[ik, :, band])
-            if abs(overlap) > 0.0:
-                vectors[ik, :, band] *= np.exp(-1j * np.angle(overlap))
-    return vectors
-
 
 def berry_connection(
     k_grid: np.ndarray,
@@ -76,7 +62,7 @@ def berry_connection(
         raise ValueError("berry_connection currently requires a uniform k grid")
 
     if smooth_gauge:
-        vectors = smooth_eigenvector_gauge(vectors)
+        vectors = smooth_eigenvector_phases(vectors)
 
     dk = float(steps[0])
     derivatives = (np.roll(vectors, -1, axis=0) - np.roll(vectors, 1, axis=0)) / (2.0 * dk)
