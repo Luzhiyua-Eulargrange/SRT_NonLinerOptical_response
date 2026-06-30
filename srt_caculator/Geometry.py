@@ -1,47 +1,13 @@
-﻿"""Geometry and velocity matrices for the 1D continuum model."""
+"""Berry-connection geometry helpers for the 1D continuum model."""
 
 from __future__ import annotations
-
-from typing import Mapping
 
 import numpy as np
 
 try:
-    from .Band_Solver import diagonalize, smooth_eigenvector_phases
-    from .config import normalize_params
+    from .Band_Solver import smooth_eigenvector_phases
 except ImportError:
-    from Band_Solver import diagonalize, smooth_eigenvector_phases
-    from config import normalize_params
-
-def velocity_matrix(
-    k_point: float,
-    params: Mapping | None = None,
-    basis: str = "plane_wave",
-) -> np.ndarray:
-    """
-    Compute the velocity operator matrix at k.
-    The plane-wave representation uses v = (1/hbar) dH/dk. If basis="band",
-    the matrix is transformed to the instantaneous eigenbasis of H(k).
-    """
-    p = normalize_params(params)
-    ells = p["ell_list"]
-    num_g = p["NG"]
-    velocity = np.zeros((p["Nb"], p["Nb"]), dtype=np.complex128)
-
-    hbar = p["hbar"]
-    prefactor = hbar / p["m"]
-
-    for i, ell in enumerate(ells):
-        G = float(ell) * p["b"]
-        velocity[i, i] = prefactor * (k_point + G - p["kappa"])
-        velocity[num_g + i, num_g + i] = -prefactor * (k_point + G)
-
-    if basis == "plane_wave":
-        return velocity
-    if basis == "band":
-        _, eigenvectors = diagonalize(k_point, p)
-        return eigenvectors.conj().T @ velocity @ eigenvectors
-    raise ValueError("basis must be 'plane_wave' or 'band'")
+    from Band_Solver import smooth_eigenvector_phases
 
 
 def berry_connection(
@@ -49,7 +15,7 @@ def berry_connection(
     eigenvectors: np.ndarray,
     smooth_gauge: bool = True,
 ) -> np.ndarray:
-    #Compute xi_ss'(k) = i <u_ks | d_k u_ks'> by finite differences.
+    # Compute xi_ss'(k) = i <u_ks | d_k u_ks'> by finite differences.
     k_grid = np.asarray(k_grid, dtype=float)
     vectors = np.asarray(eigenvectors, dtype=np.complex128)
     if k_grid.ndim != 1 or k_grid.size < 3:
@@ -98,34 +64,3 @@ def covariant_derivative_matrix(
     derivative = (np.roll(matrices, -1, axis=0) - np.roll(matrices, 1, axis=0)) / (2.0 * dk)
     commutator = xi @ matrices - matrices @ xi
     return derivative - 1j * commutator
-
-
-def band_velocity_matrices(
-    k_grid: np.ndarray,
-    params: Mapping | None = None,
-    eigenvectors: np.ndarray | None = None,
-) -> np.ndarray:
-    """
-    Return U^dagger (1/hbar dH/dk) U for every k.
-
-    This analytic path is used by the production velocity-gauge evolution. The
-    covariant-derivative form from Eq. (28) is used separately as a sparse
-    diagnostic because it depends on finite-difference Berry-connection data.
-    """
-    p = normalize_params(params)
-    k_grid = np.asarray(k_grid, dtype=float)
-    velocities = np.empty((k_grid.size, p["Nb"], p["Nb"]), dtype=np.complex128)
-
-    if eigenvectors is not None:
-        eigenvectors = np.asarray(eigenvectors, dtype=np.complex128)
-        if eigenvectors.shape != velocities.shape:
-            raise ValueError(f"eigenvectors must have shape {velocities.shape}")
-
-    for ik, k_point in enumerate(k_grid):
-        v_plane = velocity_matrix(float(k_point), p, basis="plane_wave")
-        if eigenvectors is None:
-            velocities[ik] = velocity_matrix(float(k_point), p, basis="band")
-        else:
-            u = eigenvectors[ik]
-            velocities[ik] = u.conj().T @ v_plane @ u
-    return velocities

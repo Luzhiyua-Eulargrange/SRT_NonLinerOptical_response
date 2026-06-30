@@ -118,34 +118,3 @@ def debug_rdm_trajectory(
     print("  rho_trajectory shape:", rho.shape)
     print("  max Hermitian error:", float(hermitian_error))
     print("  max trace drift:", float(trace_drift))
-
-
-def plot_current_evolution(
-    time_grid: np.ndarray,
-    current: np.ndarray,
-    output_path: str = "current_evolution.png",
-) -> None:
-    """Plot the current time evolution."""
-    time_grid = np.asarray(time_grid, dtype=float)
-    current = np.asarray(current, dtype=float)
-    if time_grid.ndim != 1 or current.ndim != 1 or time_grid.size != current.size:
-        raise ValueError("time_grid and current must be one-dimensional arrays with the same size")
-
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError:
-        print("matplotlib is not installed; skipped current plot.")
-        return
-
-    fig, ax = plt.subplots(figsize=(7.0, 4.5))
-    ax.plot(time_grid, current, linewidth=1.4)
-    ax.set_xlabel("time")
-    ax.set_ylabel("current")
-    ax.set_title("Current evolution")
-    ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-
-    output = Path(output_path)
-    fig.savefig(output, dpi=200)
-    plt.close(fig)
-    print(f"Saved current plot to {output.resolve()}")
