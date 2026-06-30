@@ -8,13 +8,13 @@ import numpy as np
 
 try:
     from .Band_Solver import build_hamiltonian
-    from .Geometry import velocity_matrix
-    from .RDM_Solver import drifted_k, propagate_rdm
+    from .Geometry import band_velocity_matrices, velocity_matrix
+    from .RDM_Common import drifted_k, propagate_single_k_plane_wave_rdm
     from .config import make_k_grid, normalize_params
 except ImportError:
     from Band_Solver import build_hamiltonian
-    from Geometry import velocity_matrix
-    from RDM_Solver import drifted_k, propagate_rdm
+    from Geometry import band_velocity_matrices, velocity_matrix
+    from RDM_Common import drifted_k, propagate_single_k_plane_wave_rdm
     from config import make_k_grid, normalize_params
 
 VelocityFunction = Callable[[float, Mapping], np.ndarray]
@@ -69,7 +69,7 @@ def total_current(
     if velocity_function is None:
         velocity_function = velocity_matrix
     if rdm_solver_function is None:
-        rdm_solver_function = propagate_rdm
+        rdm_solver_function = propagate_single_k_plane_wave_rdm
 
     time_grid_ref: np.ndarray | None = None
     accumulated: np.ndarray | None = None
@@ -102,4 +102,99 @@ def total_current(
 def calculate_current(*args, **kwargs) -> tuple[np.ndarray, np.ndarray]:
     """Compatibility alias for ``total_current``."""
     return total_current(*args, **kwargs)
+
+
+def current_from_band_rdm(
+    params: Mapping | None,
+    rho_trajectory: np.ndarray,
+    velocity_grid: np.ndarray,
+    k_weight: float,
+) -> np.ndarray:
+    """Return J(t) = -e sum_k w_k Re Tr[v(k) rho(k,t)]."""
+    p = normalize_params(params)
+    rho = np.asarray(rho_trajectory, dtype=np.complex128)
+    velocity = np.asarray(velocity_grid, dtype=np.complex128)
+    if rho.ndim != 4:
+        raise ValueError("rho_trajectory must have shape (Nt, Nk, Nb, Nb)")
+    if velocity.ndim != 3:
+        raise ValueError("velocity_grid must have shape (Nk, Nb, Nb)")
+    if rho.shape[1:] != velocity.shape:
+        raise ValueError("rho_trajectory and velocity_grid shapes are inconsistent")
+
+    contributions = np.einsum("kij,tkji->t", velocity, rho).real
+    return -p["e_charge"] * float(k_weight) * contributions
+
+
+def total_current_from_band_rdm(
+    params: Mapping | None,
+    k_grid: np.ndarray,
+    k_weight: float,
+    rho_trajectory: np.ndarray,
+    eigenvectors: np.ndarray,
+    velocity_grid: np.ndarray | None = None,
+) -> np.ndarray:
+    """Compute macroscopic current from band-basis RDM output."""
+    p = normalize_params(params)
+    if velocity_grid is None:
+        velocity_grid = band_velocity_matrices(k_grid, p, eigenvectors=eigenvectors)
+    return current_from_band_rdm(p, rho_trajectory, velocity_grid, k_weight)
+
+
+def total_current_from_velocity_gauge_rdm(*args, **kwargs) -> np.ndarray:
+    """Compatibility alias for total_current_from_band_rdm."""
+    return total_current_from_band_rdm(*args, **kwargs)
+
+
+def current_result_from_band_rdm(
+    params: Mapping | None,
+    gauge: str,
+    rdm_result: Mapping,
+    velocity_grid: np.ndarray | None = None,
+) -> dict:
+    """Return a current result dictionary from a saved-style band RDM result."""
+    required_keys = ("k_grid", "k_weight", "time_grid", "rho_trajectory", "energies", "eigenvectors")
+    missing = [key for key in required_keys if key not in rdm_result]
+    if missing:
+        raise KeyError(f"rdm_result is missing keys: {missing}")
+
+    current = total_current_from_band_rdm(
+        params,
+        np.asarray(rdm_result["k_grid"], dtype=float),
+        float(rdm_result["k_weight"]),
+        np.asarray(rdm_result["rho_trajectory"], dtype=np.complex128),
+        np.asarray(rdm_result["eigenvectors"], dtype=np.complex128),
+        velocity_grid=velocity_grid,
+    )
+    return {
+        "gauge": gauge,
+        "k_grid": np.asarray(rdm_result["k_grid"], dtype=float),
+        "k_weight": float(rdm_result["k_weight"]),
+        "time_grid": np.asarray(rdm_result["time_grid"], dtype=float),
+        "rho_trajectory": np.asarray(rdm_result["rho_trajectory"], dtype=np.complex128),
+        "current": current,
+        "energies": np.asarray(rdm_result["energies"], dtype=float),
+    }
+
+
+def save_rdm_current_results(
+    filename: str,
+    gauge: str,
+    k_grid: np.ndarray,
+    k_weight: float,
+    time_grid: np.ndarray,
+    rho_trajectory: np.ndarray,
+    current: np.ndarray,
+    energies: np.ndarray,
+) -> None:
+    """Save RDM trajectory and current evolution to an npz file."""
+    np.savez(
+        filename,
+        gauge=np.asarray(gauge),
+        k_grid=np.asarray(k_grid, dtype=float),
+        k_weight=float(k_weight),
+        time_grid=np.asarray(time_grid, dtype=float),
+        rho_trajectory=np.asarray(rho_trajectory, dtype=np.complex128),
+        current=np.asarray(current, dtype=float),
+        energies=np.asarray(energies, dtype=float),
+    )
 

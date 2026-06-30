@@ -75,11 +75,104 @@ def solve_band(k_point: float, params: Mapping | None = None) -> tuple[np.ndarra
     return diagonalize(k_point, params)
 
 
-def solve_bands(k_grid: np.ndarray, params: Mapping | None = None) -> tuple[np.ndarray, np.ndarray]:
+def smooth_eigenvector_phases(eigenvectors: np.ndarray, periodic: bool = True) -> np.ndarray:
+    """
+    Align adjacent eigenvector phases along a one-dimensional k grid.
+
+    The operation changes only each band's U(1) phase. Eigenvectors stay
+    normalized and orthogonal, and the corresponding band energies are
+    unchanged. When ``periodic`` is true, the residual phase mismatch between
+    the last and first k points is distributed uniformly over the whole grid
+    instead of being left as a boundary jump.
+    """
+    vectors = np.array(eigenvectors, dtype=np.complex128, copy=True)
+    if vectors.ndim != 3 or vectors.shape[1] != vectors.shape[2]:
+        raise ValueError("eigenvectors must have shape (Nk, Nb, Nb)")
+
+    for ik in range(1, vectors.shape[0]):
+        for band in range(vectors.shape[2]):
+            overlap = np.vdot(vectors[ik - 1, :, band], vectors[ik, :, band])
+            if abs(overlap) > 0.0:
+                vectors[ik, :, band] *= np.exp(-1j * np.angle(overlap))
+
+    if periodic and vectors.shape[0] > 1:
+        num_k = vectors.shape[0]
+        phase_ramp_index = np.arange(num_k, dtype=float)
+        for band in range(vectors.shape[2]):
+            boundary_overlap = np.vdot(vectors[-1, :, band], vectors[0, :, band])
+            if abs(boundary_overlap) > 0.0:
+                boundary_phase = np.angle(boundary_overlap)
+                phase_ramp = np.exp(1j * phase_ramp_index * boundary_phase / num_k)
+                vectors[:, :, band] *= phase_ramp[:, None]
+    return vectors
+
+
+def phase_smoothing_diagnostics(eigenvectors: np.ndarray, include_boundary: bool = True) -> dict[str, float]:
+    """
+    Return overlap diagnostics for checking phase smoothing effectiveness.
+
+    For periodic smoothing, the neighbor phases are expected to be small and
+    spread across the whole grid instead of being concentrated at the FBZ
+    boundary.
+    """
+    vectors = np.asarray(eigenvectors, dtype=np.complex128)
+    if vectors.ndim != 3 or vectors.shape[1] != vectors.shape[2]:
+        raise ValueError("eigenvectors must have shape (Nk, Nb, Nb)")
+    if vectors.shape[0] < 2:
+        raise ValueError("at least two k points are required")
+
+    overlaps = []
+    phases = []
+    for ik in range(1, vectors.shape[0]):
+        for band in range(vectors.shape[2]):
+            overlap = np.vdot(vectors[ik - 1, :, band], vectors[ik, :, band])
+            overlaps.append(abs(overlap))
+            phases.append(abs(np.angle(overlap)) if abs(overlap) > 0.0 else np.nan)
+
+    overlap_array = np.asarray(overlaps, dtype=float)
+    phase_array = np.asarray(phases, dtype=float)
+    finite_phases = phase_array[np.isfinite(phase_array)]
+    diagnostics = {
+        "min_adjacent_overlap_abs": float(np.min(overlap_array)),
+        "mean_adjacent_overlap_abs": float(np.mean(overlap_array)),
+        "max_adjacent_phase_abs": float(np.max(finite_phases)) if finite_phases.size else float("nan"),
+        "mean_adjacent_phase_abs": float(np.mean(finite_phases)) if finite_phases.size else float("nan"),
+    }
+    if include_boundary:
+        boundary_overlaps = []
+        boundary_phases = []
+        for band in range(vectors.shape[2]):
+            overlap = np.vdot(vectors[-1, :, band], vectors[0, :, band])
+            boundary_overlaps.append(abs(overlap))
+            boundary_phases.append(abs(np.angle(overlap)) if abs(overlap) > 0.0 else np.nan)
+        boundary_overlap_array = np.asarray(boundary_overlaps, dtype=float)
+        boundary_phase_array = np.asarray(boundary_phases, dtype=float)
+        finite_boundary_phases = boundary_phase_array[np.isfinite(boundary_phase_array)]
+        diagnostics.update({
+            "min_boundary_overlap_abs": float(np.min(boundary_overlap_array)),
+            "mean_boundary_overlap_abs": float(np.mean(boundary_overlap_array)),
+            "max_boundary_phase_abs": (
+                float(np.max(finite_boundary_phases)) if finite_boundary_phases.size else float("nan")
+            ),
+            "mean_boundary_phase_abs": (
+                float(np.mean(finite_boundary_phases)) if finite_boundary_phases.size else float("nan")
+            ),
+        })
+    return diagnostics
+
+
+def solve_bands(
+    k_grid: np.ndarray,
+    params: Mapping | None = None,
+    smooth_phases: bool = True,
+    periodic_smooth: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Diagonalize H(k) on a k grid.
     Returns energies with shape (Nk, Nb) and eigenvectors with shape
     (Nk, Nb, Nb).  For each k, eigenvectors are stored column-wise.
+    By default, eigenvector phases are smoothed along the k grid before return,
+    including periodic phase-ramp smoothing across the FBZ boundary.
     """
     p = normalize_params(params)
     k_grid = np.asarray(k_grid, dtype=float)
@@ -88,6 +181,9 @@ def solve_bands(k_grid: np.ndarray, params: Mapping | None = None) -> tuple[np.n
 
     for ik, k_point in enumerate(k_grid):
         energies[ik], eigenvectors[ik] = diagonalize(float(k_point), p)
+
+    if smooth_phases:
+        eigenvectors = smooth_eigenvector_phases(eigenvectors, periodic=periodic_smooth)
 
     return energies, eigenvectors
 
