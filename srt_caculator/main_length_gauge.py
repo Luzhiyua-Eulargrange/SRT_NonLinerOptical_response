@@ -5,12 +5,19 @@ from __future__ import annotations
 import numpy as np
 
 from Band_Solver import save_band_results, solve_bands
+from Current_Distribution import (
+    current_convergence as real_current_convergence,
+    current_result_from_rdm_result,
+    save_current_result,
+)
 from Density import (
     density_convergence as real_density_convergence,
     density_result_from_rdm_result,
     save_density_result,
 )
 from Debug_Tools import debug_rdm_trajectory, plot_bands_and_print_eigenvectors, print_default_params
+from Debug_Tools import plot_current_spacetime_map, plot_current_time_slices, plot_current_time_traces
+from Debug_Tools import plot_density_spacetime_map, plot_density_time_slices, plot_density_time_traces
 from RDM_Length_Gauge import propagate_length_gauge_rdm
 from config import make_k_grid, normalize_params
 
@@ -133,6 +140,26 @@ def print_real_density_convergence(metrics: dict[str, float]) -> None:
         print(f"  {key}: {metrics[key]}")
 
 
+def print_real_current_convergence(metrics: dict[str, float]) -> None:
+    """Print real-space current convergence metrics in a stable order."""
+    print("Length-gauge real-space current convergence diagnostics:")
+    for key in (
+        "current_total_relative_max_difference",
+        "current_total_max_abs_difference",
+        "current_component_relative_max_difference",
+        "current_component_max_abs_difference",
+        "paramagnetic_component_relative_max_difference",
+        "paramagnetic_component_max_abs_difference",
+        "diamagnetic_component_relative_max_difference",
+        "diamagnetic_component_max_abs_difference",
+        "current_per_cell_relative_max_difference",
+        "current_per_cell_max_abs_difference",
+        "average_current_relative_max_difference",
+        "average_current_max_abs_difference",
+    ):
+        print(f"  {key}: {metrics[key]}")
+
+
 def solve_length_rdm(params: dict, num_k: int, time_grid: np.ndarray) -> dict:
     """Solve length-gauge RDM on one k grid."""
     run_params = dict(params)
@@ -215,6 +242,44 @@ def save_real_density_convergence(
     )
 
 
+def save_real_current_convergence(
+    filename: str,
+    coarse_current: dict,
+    fine_current: dict,
+    metrics: dict[str, float],
+    tolerance: float,
+) -> None:
+    """Save real-space current convergence diagnostics."""
+    np.savez(
+        filename,
+        x_grid=np.asarray(fine_current["x_grid"], dtype=float),
+        time_grid=np.asarray(fine_current["time_grid"], dtype=float),
+        vector_potential=np.asarray(fine_current["vector_potential"], dtype=float),
+        coarse_current_total=np.asarray(coarse_current["current_total"], dtype=float),
+        fine_current_total=np.asarray(fine_current["current_total"], dtype=float),
+        coarse_current_components=np.asarray(coarse_current["current_components"], dtype=float),
+        fine_current_components=np.asarray(fine_current["current_components"], dtype=float),
+        coarse_paramagnetic_current_components=np.asarray(
+            coarse_current["paramagnetic_current_components"], dtype=float
+        ),
+        fine_paramagnetic_current_components=np.asarray(
+            fine_current["paramagnetic_current_components"], dtype=float
+        ),
+        coarse_diamagnetic_current_components=np.asarray(
+            coarse_current["diamagnetic_current_components"], dtype=float
+        ),
+        fine_diamagnetic_current_components=np.asarray(
+            fine_current["diamagnetic_current_components"], dtype=float
+        ),
+        coarse_current_per_cell=np.asarray(coarse_current["current_per_cell"], dtype=float),
+        fine_current_per_cell=np.asarray(fine_current["current_per_cell"], dtype=float),
+        coarse_average_current=np.asarray(coarse_current["average_current"], dtype=float),
+        fine_average_current=np.asarray(fine_current["average_current"], dtype=float),
+        tolerance=float(tolerance),
+        **metrics,
+    )
+
+
 def main() -> None:
     print_default_params()
     params = normalize_params({
@@ -278,8 +343,86 @@ def main() -> None:
             f"relative max difference {convergence_error:.6g} exceeds {convergence_tol:.6g}."
         )
 
+    print(f"Reconstructing unit-cell current on Nx={density_num_x}")
+    coarse_current = current_result_from_rdm_result(params, coarse, num_x=density_num_x)
+    fine_current = current_result_from_rdm_result(params, fine, num_x=density_num_x)
+    current_convergence_metrics = real_current_convergence(fine_current, coarse_current)
+    print_real_current_convergence(current_convergence_metrics)
+
+    current_convergence_error = current_convergence_metrics["current_total_relative_max_difference"]
+    if current_convergence_error > convergence_tol:
+        print(
+            "Length-gauge real-space current did not converge: "
+            f"relative max difference {current_convergence_error:.6g} exceeds {convergence_tol:.6g}."
+        )
+
     save_length_rdm_result("length_rdm_result.npz", fine)
     save_density_result("length_density_result.npz", fine_density)
+    save_current_result("length_current_distribution.npz", fine_current)
+    plot_density_spacetime_map(
+        fine_density["time_grid"],
+        fine_density["x_grid"],
+        fine_density["density_total"],
+        output_path="density_spacetime_total.png",
+        title="Length-gauge total density n(x,t)",
+    )
+    plot_density_spacetime_map(
+        fine_density["time_grid"],
+        fine_density["x_grid"],
+        fine_density["density_total"],
+        output_path="density_response_spacetime_total.png",
+        title="Length-gauge density response delta n(x,t)",
+        subtract_initial=True,
+    )
+    plot_density_time_slices(
+        fine_density["time_grid"],
+        fine_density["x_grid"],
+        fine_density["density_total"],
+        output_path="density_response_time_slices.png",
+        title="Length-gauge density response profiles",
+        subtract_initial=True,
+    )
+    plot_density_time_traces(
+        fine_density["time_grid"],
+        fine_density["x_grid"],
+        fine_density["density_total"],
+        density_components=fine_density["density_components"],
+        output_path="density_response_time_traces.png",
+        title="Length-gauge density response time traces",
+        subtract_initial=True,
+    )
+    plot_current_spacetime_map(
+        fine_current["time_grid"],
+        fine_current["x_grid"],
+        fine_current["current_total"],
+        output_path="current_spacetime_total.png",
+        title="Length-gauge total current j(x,t)",
+    )
+    plot_current_spacetime_map(
+        fine_current["time_grid"],
+        fine_current["x_grid"],
+        fine_current["current_total"],
+        output_path="current_response_spacetime_total.png",
+        title="Length-gauge current response delta j(x,t)",
+        subtract_initial=True,
+    )
+    plot_current_time_slices(
+        fine_current["time_grid"],
+        fine_current["x_grid"],
+        fine_current["current_total"],
+        output_path="current_response_time_slices.png",
+        title="Length-gauge current response profiles",
+        subtract_initial=True,
+    )
+    plot_current_time_traces(
+        fine_current["time_grid"],
+        fine_current["x_grid"],
+        fine_current["current_total"],
+        current_components=fine_current["current_components"],
+        output_path="current_response_time_traces.png",
+        title="Length-gauge current response time traces",
+        subtract_initial=True,
+    )
     save_rdm_convergence(
         "length_rho_convergence.npz",
         coarse,
@@ -292,6 +435,13 @@ def main() -> None:
         coarse_density,
         fine_density,
         density_convergence_metrics,
+        convergence_tol,
+    )
+    save_real_current_convergence(
+        "length_current_convergence.npz",
+        coarse_current,
+        fine_current,
+        current_convergence_metrics,
         convergence_tol,
     )
 
